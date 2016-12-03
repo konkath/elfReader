@@ -2,14 +2,31 @@ import sys
 from elftools.elf.elffile import ELFFile
 
 
-# FA = S_FA + ( VA – S_VA)
-# VA = podajemy
-# S_VA – poczatek sekcji (Addr)
-# S_FA – adres sekcji w pliku (OFF)
+def get_byte_array(my_byte):
+    if len(my_byte) > 10:
+        print('Wrong byte length provided - stopping!')
+        raise AttributeError
+
+    try:
+        int(my_byte, 16)
+    except ValueError:
+        print('Wrong byte provided - stopping!')
+        raise AttributeError
+
+    if '0x' in my_byte:
+        my_byte = my_byte.replace('0x', '')
+
+    # Strings lengths are number of bytes * 2
+    while len(my_byte) != 2 and len(my_byte) != 4 and len(my_byte) != 8:
+        my_byte = '0' + my_byte[0:]
+
+    n = 2
+    byte_arr = bytearray([int(my_byte[i:i + n], 16) for i in range(0, len(my_byte), n)])
+    return byte_arr[::-1]
 
 
 def process_file(filename):
-    with open(filename, 'rb') as f:
+    with open(filename, 'r+b') as f:
         elf_file = ELFFile(f)
 
         if not elf_file.little_endian:
@@ -27,20 +44,21 @@ def process_file(filename):
                 s_fa = section.header['sh_offset']
                 s_end = s_va + s_fa
 
-                print(s_va, entry_point, s_end)
-
                 if s_va < entry_point < s_end:
                     my_section = section
                     break
 
         if my_section:
             va = int(sys.argv[2], 16)
-            print(s_va, s_fa, va)
             fa = s_fa + (va - s_va)
-            print(fa)
 
-            f.seek(fa)
-            print(f.read(4))
+            for my_byte in sys.argv[3:]:
+                try:
+                    get_byte_array(my_byte)
+                    my_byte_array = get_byte_array(my_byte)
+                    print(my_byte_array)
+                except AttributeError:
+                    return
 
-
-process_file(sys.argv[1])
+if __name__ == '__main__':
+    process_file(sys.argv[1])
