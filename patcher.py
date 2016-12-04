@@ -1,5 +1,6 @@
 import sys
 from elftools.elf.elffile import ELFFile
+from elftools.common.exceptions import ELFError
 
 
 def get_byte_array(my_byte):
@@ -53,7 +54,11 @@ def write_to_file(file, fa, my_byte_array):
 
 def process_file(filename):
     with open(filename, 'r+b') as file:
-        elf_file = ELFFile(file)
+        try:
+            elf_file = ELFFile(file)
+        except ELFError:
+            print('This is not elf binary file - stopping!')
+            return
 
         if not elf_file.little_endian:
             print('little endian is currently not supported')
@@ -61,15 +66,21 @@ def process_file(filename):
 
         s_va, s_fa = get_addresses(elf_file)
         if s_va and s_fa:
-            va = int(sys.argv[2], 16)
-            fa = s_fa + (va - s_va)
+            try:
+                va = int(sys.argv[2], 16)
+            except ValueError:
+                print('Wrong address provided - stopping!')
+                return
 
+            fa = s_fa + (va - s_va)
             for my_byte in sys.argv[3:]:
                 try:
                     my_byte_array = get_byte_array(my_byte)
                     write_to_file(file, fa, my_byte_array)
                     fa += len(my_byte_array)
-                except AttributeError or EOFError:
+                except AttributeError:
+                    return
+                except EOFError:
                     return
 
             print('Swapping operation completed with success!')
